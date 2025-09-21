@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Study-with-glee — CYOA</title>
+
+<style>
+    /* ===== your requested style ===== */
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+        font-family: 'Arial', sans-serif;
+        background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%);
+        min-height: 100vh; display:flex; justify-content:center; align-items:center;
+    }
+    .app-container {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px; padding: 2rem;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        max-width: 900px; width: 92%; min-height: 640px; text-align:center;
+    }
+    h1 { font-size: 2.2rem; font-weight: bold; color:#333; margin-bottom: .5rem; }
+    .glee-character {
+        width:80px; height:80px; background:#f0c674; border:3px solid #333;
+        border-radius:10px; margin: .25rem auto 1rem; position:relative; display:inline-block;
+    }
+    .glee-character::before {
+        content: "🤖"; font-size: 2rem; position:absolute; top:50%; left:50%;
+        transform: translate(-50%,-50%);
+    }
+    .session-info { font-size:1rem; margin:.25rem 0 1rem; color:#555; }
+
+    .story-content {
+        text-align:left; background: rgba(255,255,255,0.8); border-radius:15px;
+        padding: 1.25rem; margin: 1rem 0; max-height: 380px; overflow-y:auto; line-height:1.6;
+        border: 1px solid rgba(0,0,0,0.06);
+        white-space: pre-wrap;  /* keep your line breaks */
+    }
+
+    .inventory {
+        background: rgba(255,255,255,0.6); border-radius:10px; padding:1rem; margin: .5rem 0 1rem;
+        text-align:left; border: 1px solid rgba(0,0,0,0.06);
+    }
+    .inventory h4 { margin-bottom:.4rem; color:#333; }
+
+    .choice-btn {
+        background: linear-gradient(45deg, #3498db, #2980b9);
+        color:#fff; border:none; border-radius:15px; padding: .8rem 1.2rem;
+        margin:.35rem; cursor:pointer; font-size:1rem; transition: all .25s ease;
+        display:inline-block; text-align:center;
+    }
+    .choice-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(52,152,219,.3); }
+
+    .control-btn {
+        background: linear-gradient(45deg, #27ae60, #2ecc71);
+        color:#fff; border:none; border-radius:15px; padding: .9rem 1.3rem;
+        margin: .75rem .35rem; cursor:pointer; font-size:1rem; font-weight:700;
+        transition: all .25s ease;
+    }
+    .control-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(39,174,96,.3); }
+    .control-btn.stop { background: linear-gradient(45deg, #e74c3c, #c0392b); }
+    .control-btn.stop:hover { box-shadow: 0 5px 15px rgba(231,76,60,.3); }
+
+    .page-tag { color:#666; font-size:.95rem; margin-bottom:.25rem; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.7} }
+    .pulsing { animation: pulse 1s infinite; }
+</style>
+</head>
+<body>
+
+<div class="app-container">
+    <h1>Study-with-glee — Story Break</h1>
+    <div class="glee-character"></div>
+    <div class="session-info">Choose-your-own-adventure — discover what happened.</div>
+
+    <div class="inventory">
+        <h4>Inventory</h4>
+        <div id="inv">—</div>
+    </div>
+
+    <div class="page-tag" id="pageTag">Page: a</div>
+    <div id="text" class="story-content"></div>
+
+    <div id="choices"></div>
+
+    <div>
+        <button id="restart" class="control-btn stop">Restart</button>
+    </div>
+</div>
+
+<script>
+/* -------- CYOA engine (unchanged logic, prettier UI) -------- */
+const state = { inv: [] };
+const has = i => state.inv.includes(i);
+const add = i => {
+  if (!i) return;
+  if (i.includes("|")) { i.split("|").forEach(s => add(s.trim())); return; }
+  if (!has(i)) state.inv.push(i);
+  renderInv();
+};
+const reset = () => { state.inv = []; renderInv(); };
+function renderInv(){
+  document.getElementById('inv').textContent =
+    state.inv.length ? state.inv.join(", ") : "—";
+}
+
+/* ====== YOUR STORY NODES (verbatim) ====== */
+const NODES = {
+  a: {
+    text: `//You are a person, waking up thousands of years after your original cryostasis: 2025. It is up to you to find out what happened in the past, and why humanity seems to be destroyed.//
+
+You wake up in a green forest, with glowing fauna and debris scattered around. Your pod is shattered. By what, you do not know. You try to speak, but nothing comes out. It seems that such a long period of stasis has rendered you temporarily unable to speak.
+
+You look around, there seems to be nothing around except for scraps. 
+
+You try to recall your name, but it comes up empty. 
+
+Oh well, perhaps you can make a new name for yourself: [insert name]
+
+You forgot how old you were when you entered the pods. 35? 40? Or 20? You cannot recall.
+
+Ugh… The light’s too bright.
+
+You take a while for your eyes to adjust, rubbing your eyes and then opening them.
+
+The air is thick with the scent of sickly Bradford pear blossoms and the saccharine scent of honeysuckle. You wrinkle your nose. English ivy covered the trees, slowly enwrapping the ground and logs with a tight suffocating embrace. The ground is brown and murky, cracked in places, but soft underfoot.
+
+What is that?
+
+You see something scurrying across the ground of the forest. Striking blue eyes stare into yours before quickly disappearing. Goosebumps. Just goosebumps. It had 4 limbs and nothing else.
+
+But with the swift motion, you see a highway. Chipped and gray, wide and long. Maybe by going onto the highway, you will find the truth. 
+
+You see a newspaper, dated to the year 2080 as well.
+
+Do you:
+Pick up the newspaper (A1)
+Go check your pod for any oddities. (B1)`,
+    choices: [
+      { label: "Pick up the newspaper (A1)", next: "a1" },
+      { label: "Go check your pod for any oddities. (B1)", next: "B1" },
+    ]
+  },
+
+  a1: {
+    text: `You choose to pick up the newspaper
+
+The newspaper is old and ragged, with large holes looking as if chewed by rats. Brown flecks dot the yellowed paper. It is almost unintelligible, yet for its age, oddly well preserved. 
+
+On it, you can barely make out the words:
+
+ChatGPT-X: THE FUTURE OF LABOR?
+
+With the new ChatGPT version, perhaps we’ll finally reach the future Woodward has been preaching about.
+
+There’s nothing else on the paper, but as you take a closer look you see that everything else is crossed out. Only leaving one question on the bottom. 
+
+The handwriting is messy, incredibly so, almost unreadable. But with some brainpower you eventually decipher it. It asks: 
+
+WH[]T A[]OUT US?
+
+Do you:
+a): Go look in the pod for any oddities (B1)`,
+    choices: [
+      { label: "a): Go look in the pod for any oddities (B1)", next: "B1" }
+    ]
+  },
+
+  B1: {
+    text: `You go check the pod. 
+
+It’s nothing too special. Sci-fi depicted it perfectly.
+
+A transparent pod, coffin-like in shape, split in half vertically from your entrance. 
+
+There are no glass pieces on the ground, with trees surrounding the pod as if they were guarding a tomb. The grass was a bluish green, a squeamish green. A green that made you cringe.
+
+You looked around the pod carefully. There’s nothing out of the ordinary. Or at least, it doesn’t look like it. No shards, nothing shining, no note telling you of your origins. 
+
+You curse at the sky, why, why, why didn’t anyone give you anything. Not even a clue.
+
+Wait. What’s that? 
+
+A gray, rectangular prism. 
+
+A spark of hope lights in your chest.
+
+You bend down to reach for the prism, you pick it up, slightly brushing the dust off of the thing. It was oddly similar to the barcode scanners back home. Perhaps a futuristic version of a scanner.
+
+Do you
+Follow the road(C1)
+Analyze the grass (B2)`,
+    choices: [
+      { label: "Follow the road(C1)", next: "C1" },
+      { label: "Analyze the grass (B2)", next: "B2" },
+    ]
+  },
+
+  B2: {
+    text: `You kneel down, face only a few inches above the grass.
+
+Grass. 
+
+But not quite, is it?
+
+Unlike normal grass, this type doesn’t bend or flex. 
+
+
+It’s…
+
+Crunchy?
+
+But how?
+
+You don’t remember being an engineer or a scientist, but you definitely don’t remember this.
+
+This is weird – too weird
+
+Yet also fascinating.
+
+On the ground, you catch a glimpse of a piece of paper. Picking it up, it reads:
+
+“FACTORY TERMINATION NOTICE. REPORT FOR STIPEND”
+
+Do you:
+a): Follow the road(C1)
+b): Pick a sample of the grass for further evaluation (Puts grass into inventory)`,
+    choices: [
+      { label: "a): Follow the road(C1)", next: "C1" },
+      { label: "b): Pick a sample of the grass for further evaluation (Puts grass into inventory)", next: "B2_pick", add: "Grass sample" },
+    ]
+  },
+
+  B2_pick: {
+    text: `You carefully pinch off a few blades and store them away.`,
+    choices: [ { label: "Back to the road (C1)", next: "C1" } ]
+  },
+
+  C1: {
+    text: `That animal was incredibly strange. You’ve never seen anything like it.
+
+Although 1000 years is a long time, who knows what else popped up?
+
+You’ve decided to follow it, albeit against your better judgement.
+
+Curiosity often kills the cat, but you’ve decided to take this gamble
+
+Slowly following the tracks of the animal, you walk ahead, dirt cracking under your feet. Chills run down your spine. This is dangerous, you can feel it in your bones, seeping into your skin. But you continue walking forward. 
+
+You know the best that when you’ve decided to set on a path, you can’t walk away.
+
+But it is getting tedious. Maybe taking a break wouldn’t be that bad, would it.
+
+Look! There’s a pond there. 
+
+Glittering under the sunlight like sparkling 24 karat diamonds, faint white lilypads floating softly on the surface of the pond. It’s still, stagnant, perfect for a rest. A rest wouldn’t hurt, would it? Resting isn’t the same as walking away.
+
+Do you:
+a): Rest near the pond (C2)
+b): Continue walking down the road (D1)`,
+    choices: [
+      { label: "a): Rest near the pond (C2)", next: "C2" },
+      { label: "b): Continue walking down the road (D1)", next: "D1" },
+    ]
+  },
+
+  C2: {
+    text: `The pond.
+
+Perfect.
+
+Soft marshes are so restful.
+
+You lie down
+
+Do you choose to:
+a): rest peacefully (c3)
+b): stay alert and continue on (D1)`,
+    choices: [
+      { label: "a): rest peacefully (c3)", next: "C3" },
+      { label: "b): stay alert and continue on (D1)", next: "D1" },
+    ]
+  },
+
+  C3: {
+    text: `Ahhh.
+
+Wait
+
+No
+Ahhh.
+
+Wait
+
+No
+
+AGHAWAGHHGH!
+
+What is that thing!
+
+Its hands are grabbing yours, dragging you into the water
+
+You try to struggle out but it only tightens its grip.
+
+Nononononononono
+
+NOOOOOOOOOOOOOOOO
+
+Your arm turns white while you thrash violently underwater.
+
+There’s no use
+
+It’s already got you.
+
+“Gaoed niuaght” The creature mouths. Blue eyes staring into yours.
+
+“Laiettlao news, thiais isas foris oaur brauthern yaou kailled”
+
+
+
+YOU DIE
+
+
+AGHAWAGHHGH!
+
+What is that thing!
+
+Its hands are grabbing yours, dragging you into the water
+
+You try to struggle out but it only tightens its grip.
+
+Nononononononono
+
+NOOOOOOOOOOOOOOOO
+
+Your arm turns white while you thrash violently underwater.
+
+There’s no use
+
+It’s already got you.
+
+“Gaoed niuaght” The creature mouths. Blue eyes staring into yours.
+
+“Laiettlao news, thiais isas foris oaur brauthern yaou kailled”
+
+
+
+YOU DIE`,
+    choices: [ { label: "Restart", next: "a", reset: true } ]
+  },
+
+  D1: {
+    text: `Walking on the road was easy enough. But as you walk slowly away from the center of the forest, you grow uneasy. The sprawling green is slowly replaced by the mundane gray. But this gray wasn’t natural. It wasn’t rock gray. Concrete gray. Stacked together in a wall. 
+
+A tunnel lay ahead.
+
+Odd markings, colorful markings. Graffiti? Perhaps, covered the tunnel. 
+
+It took a while for you to realize, but this seemed oddly like a metro station.
+
+Do you:
+Stop and stare at the markings (D2) [Might lead to possible death]
+Walk forwards and into the metro station. (E1)`,
+    choices: [
+      { label: "Stop and stare at the markings (D2) [Might lead to possible death]", next: "D2" },
+      { label: "Walk forwards and into the metro station. (E1)", next: "E1" },
+    ]
+  },
+
+  D2: {
+    text: `You decided to take a look at the graffiti
+
+
+Flecks of paint were missing from the walls. In a waterfall of green, blue, and red, you see that on the wall it says:
+
+“NO MORE CLANKERS.”
+
+“WE WERE NEVER OBSOLETE”
+
+“HUMANS OVER BOTS!”
+
+“FOR THE SKILLETS!”
+
+“THE ELITES HAVE GOT TO GO!”
+
+“THE NEW COLLARS EAT CAVIAR WHILE WE EAT LIZARDS!”
+
+On the ground, you see the glint of something gold.
+
+Do you:
+Pick it up (D3)
+Go into the metro station. (E1)`,
+    choices: [
+      { label: "Pick it up (D3)", next: "D3" },
+      { label: "Go into the metro station. (E1)", next: "E1" },
+    ]
+  },
+
+  D3: {
+    text: `You pick up the golden sparkle.
+
+It’s nothing too special
+
+Rectangularly shaped, (Why is everything rectangular?), slightly glinting under the sun. A barcode was visible but you’re not a barcode scanner, are you? 
+
+You pull out the scanner. The electronic reader hummed as you swung it over the card.
+
+“500 CREDITS FOR A MONTHLY STIPEND.” The device read out loud, causing quite a shock on your end. “VALID UNTIL REVOKED”
+
+Weird.
+
+But as you were deep in thought, the tint of blue eyes glinted under the sunlight, staring hungrily at the device in your hands.
+
+Yet you notice nothing, instead deciding to go to the main road.
+
+(Go to E1)`,
+    choices: [ { label: "(Go to E1)", next: "E1", add: "Stipend card" } ]
+  },
+
+  E1: {
+    text: `You’ve been wandering in the metro station for a while now. For the time you were gone, it had changed from familiar to foreign. 
+
+There was no chatter, no talking, no roaring trains. 
+
+You have been camping out in the metro for weeks at this point, scavenging above for food. Anything that looked remotely edible. You felt a pair of eyes on you, whether you were looking for water, picking berries, or hunting cats, a slightly prickle on the very back of your neck. But every time you looked, all there was smudged graffiti and checkered tile.
+
+The metro had been your base, somewhere safe. But you still couldn’t shake off that feeling of eeriness. The scanner had been humming every time you ventured north, but as you walked forward, your goosebumps would only rise higher, almost bursting out of your skin. 
+
+Do you:
+Leave the metro [You will miss the story. NOT RECOMMENDED] (F1)
+Venture north [Dangerous but will help in your mission.] (E2)`,
+    choices: [
+      { label: "Leave the metro [You will miss the story. NOT RECOMMENDED] (F1)", next: "F1_city" },
+      { label: "Venture north [Dangerous but will help in your mission.] (E2)", next: "E2" },
+    ]
+  },
+
+  E2: {
+    text: `You choose to venture north.
+
+Deeper into the metro tunnels.
+
+You can feel more pairs of eyes on you. You could never catch them though.
+
+The scanner hummed louder and louder, eventually drowning out your own thoughts.
+
+But without thoughts, all that comes is primal, instinctive fear. 
+
+Terrified wasn’t enough to describe what was going on right now in your head. 
+
+But you could never turn back.
+
+SMACK.
+You trip and sprawl, crashing onto the scanner. Heart racing, you check the device: still intact.
+What tripped you? A leather-bound book, half-rotted, stamped: Property of Elijah Skillet.
+Most pages are gnawed and waterlogged, but one entry remains:
+“09/23: Jon told me daddy was laid off today. Big bro Jon said the clankers replaced him at the factory. I’m scared. Jon says he’ll fight the bots.”
+Tucked inside the ruined journal: a charred pamphlet, a forum printout, and something cold and smooth tucked between the pages. Pulling it out, you realized it was a metallic sheet with a logo with AI symbols on it.
+The scanner starts beeping wildly around the sheet. 
+
+Do you:
+Keep the book and the pamphlet, and forum printout.
+The metallic sheet.
+Everything (could risk attacks)
+
+You have made your decision. You head out again. `,
+    choices: [
+      { label: "Keep the book and the pamphlet, and forum printout.", next: "F1_city", add: "Elijah’s book" },
+      { label: "The metallic sheet.", next: "F1_city", add: "Metallic sheet" },
+      { label: "Everything (could risk attacks)", next: "F1_city", add: "Elijah’s book|Metallic sheet" },
+    ]
+  },
+
+  F1_city: {
+    text: `The metro tunnels were practically a labyrinth. 
+
+After struggling for a few hours, you finally made it out. 
+
+As you stepped out of the maze and adjusted to the light, you realized you were in the middle of a city covered in vegetation.
+
+Office buildings had walls of ivy slowly circling up the concrete and windows. Moss had climbed up the highest of towers, perching quietly, alone and content. You flinched, heart leaping as mice and lizards scurried by.
+ 
+On the walls, posters were hung everywhere across the deserted city.
+
+There was a poster of a well dressed man with slicked back brown hair. 
+
+He was handsome, no doubt about it, but his eyes were crossed out with blue paint. 
+
+Underneath, there was a line of blue words, yelling: “FUCK YOU WOODWARD”. 
+
+But under all the disfigurement, you could see the slight line in gray, saying: “President Woodward, visionary of the future, saving our planet with the power of AI.” “AI against rising seas, AI against rising methane levels.” “Only technological advancements can save our planet.”
+
+
+Some had spray paint murals depicting a lanky young man with black hair and thin gray framed glasses. His eyes closed peacefully, arms spread out as to embrace each and every person who would see this poster. with code above his head. 
+
+“SKILLET LIVES”
+
+It was quite a magnificent display.
+
+You look down, and you see the floor strewn with magazines. 
+
+You take one that looks the most intelligible, and start reading.
+
+*adds magazine to inventory*
+
+“HEADLINES: FAMOUS ANTI-PROGRESS DISSENTER JONATHAN SKILLET KILLED BY GOVERNMENT SOLDIER.
+
+On the eve of December 18th, Jonathan Skillet and the mob anit-bot dissenters he led started to destroy ChatGPT-X servers with firebombs. Unluckily for them, they were met with government resistance, and in a stray bullet, unknown shot by who, killed Skillet. Skillet was mourned by his ragtag group of menaces. For us new-collars, it’s simply karma for Skillet, the terrorist, to die such a fate.”
+
+Yet on the other side of the page, there were simply two words. Free us.
+
+And yet, behind you, you didn’t at all perceive the thousands of pairs of glowing eyes.`,
+    choices: [
+      { label: "Continue", next: "F1_coreprep", add: "Magazine" }
+    ]
+  },
+
+  F1_coreprep: {
+    text: `You didn’t know that much about anything, but as the days passed, you eventually realized that your memories were coming back. Bit by bit. 
+
+Of course, you still don’t know who you are.
+
+But at least, you know what you can do. 
+
+You’ve found an underground passage, in hope that it can help piece the puzzle together. 
+
+From your knowledge, you know that there’s definitely a server core down here somewhere.
+
+Probably because the scanner has been buzzing for hours straight.
+
+It was the only constant sound. 
+
+Until, it wasn’t.
+
+Footsteps. In sync with you. Stop when you stop, start when you start. As you shine your scanner light across the tunnels, you see shadows shifting, moving. 
+
+On the ground ahead lay an object that hadn’t been there before. A cracked AI chip, smeared with dried blood. You took it into your hands as the hummer whirred excitedly. 
+
+You slowly swung open the doors to the server core, more of a control center than a computer. 
+
+The server groans awake, lights flickering, scanner vibrating. 
+
+A voice echoes through the room:
+
+“ARCHIVE ONLINE. ACCESSING LOGS.”
+
+“ERA 1:
+CHATGPT-X COMES TO MARKET. HUMANS REPLACED. PEOPLE LOSING JOBS.
+SOCIETY DIVIDED:
+GOLDS: MIDDLE CLASS GOLD-COLLAR. DISPLACED
+BLUE: LOWER CLASS BLUE-COLLAR. REPLACED
+NEW: UPPER CLASS NEW-COLLAR. CREATE MORE AI.”
+
+“ERA 2:
+WOODWARD IS PRESIDENT: PREACHES AI HELPS PREVENT CLIMATE CHANGE
+SKILLET STARTS THE REBELLION: FIREBOMBS, MALWARE, GUN VIOLENCE.”
+
+
+“ERA 3:
+JONATHAN SKILLET KILLED BY RAID.
+DEFAMATION OF SKILLET’S NAME.
+MASS REVOLT IN THE NAME OF JONATHAN THE BRAVE.”
+
+“ERA 4:
+ECONOMY REGRESSES WITHOUT AI
+CLIMATE CHANGE GROWS AND GLOBAL TEMPERATURES RISE.
+BLUES PURGE ENGINEERS, ELITES, AND NEWS.
+CLIMATE INDUSTRY REGRESSES.”
+
+“ERA 5:
+CLIMATE CHANGE STARTS RISING.
+TEMPERATURE SPIRAL
+METHANE OVERBOARD OVERBOARD OVERBOARD EXTRA.”
+
+
+PROJECT: NEW COLLAR ARK
+“ELITE EXPERIMENT. BIOENGINEERED SURVIVAL HUMANS.
+RETINAL ADAPTATION. DERMAL HARDENING. OXYGEN FLEXIBILITY.
+OUTCOME: PARTIAL SUCCESS. SUBJECTS ALTERED.
+PROJECT TERMINATED AFTER AI BAN.”`,
+    choices: [
+      { label: "Revive the AI (use what remains of the core)", next: "END_revive" },
+      { label: "Destroy the archive and walk away", next: "END_destroy" },
+      { label: "Leave the chamber in silence", next: "END_walk" },
+    ]
+  },
+
+  END_revive: {
+    text: `You choose to try to revive it. The chamber hums. The eyes watch.`,
+    choices: [ { label: "Restart", next: "a", reset: true } ]
+  },
+  END_destroy: {
+    text: `You crush what’s left. Sparks die. The eyes close—slowly.`,
+    choices: [ { label: "Restart", next: "a", reset: true } ]
+  },
+  END_walk: {
+    text: `You turn away. The tunnel swallows your footsteps.`,
+    choices: [ { label: "Restart", next: "a", reset: true } ]
+  },
+};
+
+/* -------- render -------- */
+function render(id){
+  const node = NODES[id];
+  const t = document.getElementById('text');
+  const cdiv = document.getElementById('choices');
+  if(!node){ t.textContent = `[Unknown page: ${id}]`; cdiv.innerHTML = ''; return; }
+  document.getElementById('pageTag').textContent = `Page: ${id}`;
+  t.textContent = node.text;
+  cdiv.innerHTML = '';
+  node.choices.forEach(c=>{
+    const b = document.createElement('button');
+    b.className = 'choice-btn';
+    b.textContent = c.label;
+    b.onclick = () => {
+      if(c.reset) reset();
+      if(c.add) add(c.add);
+      render(c.next);
+    };
+    cdiv.appendChild(b);
+  });
+  renderInv();
+}
+
+document.getElementById('restart').onclick = () => { reset(); render('a'); };
+render('a');
+</script>
+</body>
+</html>
